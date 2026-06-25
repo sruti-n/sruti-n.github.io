@@ -1,12 +1,40 @@
+<!-- The minimum structure for the index.html file. -->
+<!-- Used to create a basic HTML skeleton with a head and body section, as well as a title for the page. -->
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <meta charset=""UTF-8" />
+        <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Sruti</title> 
-    
+
+        <!-- Adding a style block to set the background color of the body and remove default margins. -->
+        <style>
+            body{
+                background: #04013d;
+                margin: 0;
+            }
+        </style>
+        
+        <!-- Loading vis.js -->
+        <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.9/styles/vis-network.min.css" />
+        <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
     </head>  
     <body>
+        <!-- Creates the constellation structure using vis.js. The container div is where the network will be rendered. -->
+        <div id="constellation" style="width: 100vw; height: 100vh;"></div>
 
+        <script>
+            const nodes = new vis.DataSet([
+                {id: "me", label: "Sruti", size: 36, shape: "dot", 
+                 color: {background: "#ffffff", border: "#aab4ff"},
+                 font: {color: "#ffffff", size: 16}
+                }
+            ]);
+
+            const edges = new vis.DataSet([]);
+
+            const container = document.getElementById("constellation");
+            new vis.Network(container, {nodes, edges}, {});
+        </script>
     </body>
 </html>
