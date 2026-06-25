@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arlo Vance — Constellation Sandbox</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.9/styles/vis-network.min.css" />
+  <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #080c18;
+      color: #e8eaf6;
+      font-family: 'Georgia', serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #constellation {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ---- DETAIL PANEL ---- */
+    #panel {
+      position: fixed;
+      top: 0; right: -400px;
+      width: 360px;
+      height: 100vh;
+      background: rgba(10, 14, 30, 0.97);
+      border-left: 1px solid rgba(140, 160, 255, 0.15);
+      padding: 2rem 1.5rem;
+      transition: right 0.3s ease;
+      overflow-y: auto;
+      z-index: 10;
+    }
+    #panel.open { right: 0; }
+
+    #panel h2 {
+      font-size: 1.2rem;
+      color: #c5ceff;
+      margin-bottom: 0.25rem;
+    }
+    #panel .category {
+      font-size: 0.72rem;
+      color: #5a6899;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      margin-bottom: 1rem;
+    }
+    #panel p {
+      font-size: 0.88rem;
+      line-height: 1.75;
+      color: #9098c8;
+    }
+    #panel .tags { margin-top: 1rem; }
+    .tag {
+      display: inline-block;
+      margin: 0.3rem 0.3rem 0 0;
+      padding: 0.2rem 0.65rem;
+      background: rgba(100, 120, 255, 0.12);
+      border: 1px solid rgba(100, 120, 255, 0.25);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      color: #8898dd;
+    }
+    #close-panel {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      background: none; border: none;
+      color: #5a6899; font-size: 1.3rem;
+      cursor: pointer; line-height: 1;
+    }
+    #close-panel:hover { color: #c5ceff; }
+
+    /* ---- LEGEND ---- */
+    #legend {
+      position: fixed;
+      top: 1.25rem; left: 1.25rem;
+      z-index: 5;
+    }
+    #legend h3 {
+      font-size: 0.68rem;
+      color: #3a4460;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+    .legend-item {
+      display: flex; align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: #6070a0;
+      margin-bottom: 4px;
+    }
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+
+    /* ---- BOTTOM BAR ---- */
+    #hint {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%; transform: translateX(-50%);
+      font-size: 0.7rem;
+      color: #2a3050;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #reset-btn {
+      position: fixed;
+      bottom: 0.85rem; right: 1.25rem;
+      font-size: 0.72rem;
+      color: #3a4870;
+      background: none;
+      border: 1px solid #2a3555;
+      border-radius: 6px;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-family: Georgia, serif;
+    }
+    #reset-btn:hover { color: #8898dd; border-color: #4a5880; }
+  </style>
+</head>
+
+<body>
+
+  <div id="constellation"></div>
+
+  <div id="panel">
+    <button id="close-panel">×</button>
+    <h2 id="panel-title"></h2>
+    <div class="category" id="panel-category"></div>
+    <p id="panel-desc"></p>
+    <div class="tags" id="panel-tags"></div>
+  </div>
+
+  <div id="legend">
+    <h3>Arlo's facets</h3>
+    <div class="legend-item"><div class="legend-dot" style="background:#7c8eff"></div> Core</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#5ecba1"></div> Engineering</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e87d5b"></div> Art</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#b97ddb"></div> Photography</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f0c040"></div> Writing</div>
+  </div>
+
+  <div id="hint">Click any star · scroll to zoom · drag to pan</div>
+  <button id="reset-btn">Reset view</button>
+
+  <script>
+
+    // ============================================================
+    // SANDBOX: Arlo Vance's constellation
+    //
+    // This file is your learning lab. Try changing things here
+    // before applying them to your real portfolio (index.html).
+    //
+    // Good things to experiment with:
+    //   - Node colors, sizes, shapes
+    //   - Edge styles (dashes, width, color, opacity)
+    //   - Physics values in the options block
+    //   - Adding and removing nodes and edges
+    //   - What you put in the meta object and how it shows in the panel
+    // ============================================================
+
+
+    // ---- NODES ----
+    // Each object is one star in the constellation.
+    // Required: id (unique), label (text shown on node)
+    // Optional: size, color, font, shape
+    // Custom:   meta (anything you want — shown in the side panel on click)
+
+    const nodes = new vis.DataSet([
+
+      // CENTER
+      {
+        id: "arlo",
+        label: "Arlo Vance",
+        size: 36,
+        color: {
+          background: "#7c8eff",
+          border: "#aab4ff",
+          highlight: { background: "#9daaff", border: "#c5ceff" }
+        },
+        font: { color: "#e8eaf6", size: 15, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Core",
+          desc: "Arlo is a high school maker from Portland. He builds things, photographs things, paints things, and occasionally writes about all three. This node is his anchor — everything radiates from here.",
+          tags: ["Portland", "Class of 2025", "Maker"]
+        }
+      },
+
+      // ENGINEERING FACET
+      {
+        id: "eng",
+        label: "Engineering",
+        size: 24,
+        color: { background: "#5ecba1", border: "#90dfc0", highlight: { background: "#7dd9b4", border: "#a8e8cc" } },
+        font: { color: "#e8eaf6", size: 12, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Facet — Engineering",
+          desc: "Arlo's technical self. He started with Arduino kits in 8th grade and hasn't stopped. He thinks of engineering as 'making an argument with matter — you're saying something is possible by showing it works.'",
+          tags: ["Arduino", "Python", "CAD", "Robotics"]
+        }
+      },
+      {
+        id: "eng-robot",
+        label: "Maze-solving robot",
+        size: 13,
+        color: { background: "#3a9975", border: "#5ecba1" },
+        font: { color: "#b0e8d0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Engineering · Project · 2023",
+          desc: "A wall-following robot built for the regional science fair. Used ultrasonic sensors and a right-hand-rule algorithm. Won 2nd place. Arlo says the hardest part wasn't the code — it was soldering at 2am.",
+          tags: ["Arduino Uno", "Ultrasonic sensors", "C++", "Science fair"]
+        }
+      },
+      {
+        id: "eng-lamp",
+        label: "Generative LED lamp",
+        size: 13,
+        color: { background: "#3a9975", border: "#5ecba1" },
+        font: { color: "#b0e8d0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Engineering · Project · 2024",
+          desc: "A lamp that generates slow, organic light patterns using Perlin noise. Built with an ESP32 and addressable LEDs inside a hand-thrown ceramic shade. The lamp and the shade are both his.",
+          tags: ["ESP32", "NeoPixels", "Perlin noise", "Ceramics"]
+        }
+      },
+      {
+        id: "eng-weather",
+        label: "Hyperlocal weather station",
+        size: 13,
+        color: { background: "#3a9975", border: "#5ecba1" },
+        font: { color: "#b0e8d0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Engineering · Project · 2022",
+          desc: "A Raspberry Pi weather station mounted on the roof of his garage. Logs temperature, humidity, pressure, and UV index every 5 minutes. Data goes to a Flask dashboard he built himself.",
+          tags: ["Raspberry Pi", "Python", "Flask", "Sensors"]
+        }
+      },
+
+      // ART FACET
+      {
+        id: "art",
+        label: "Art",
+        size: 24,
+        color: { background: "#e87d5b", border: "#f0a882", highlight: { background: "#ef9070", border: "#f5bba0" } },
+        font: { color: "#e8eaf6", size: 12, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Facet — Art",
+          desc: "Arlo paints in gouache and draws in ink. He's drawn to things that are slightly off — asymmetric compositions, unexpected color pairings. He keeps a sketchbook in his back pocket at all times.",
+          tags: ["Gouache", "Ink", "Sketchbook", "Illustration"]
+        }
+      },
+      {
+        id: "art-zine",
+        label: "Circuit Feelings zine",
+        size: 13,
+        color: { background: "#b85a3a", border: "#e87d5b" },
+        font: { color: "#f5c0a8", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Art · Zine · 2024",
+          desc: "A hand-drawn, photocopied zine about the emotional life of broken electronics. 24 pages, 60 copies printed. Sold at a local zine fair. Explores what it feels like when a thing you built stops working.",
+          tags: ["Zine", "Ink drawing", "Self-published", "60 copies"]
+        }
+      },
+      {
+        id: "art-mural",
+        label: "Cafeteria mural",
+        size: 13,
+        color: { background: "#b85a3a", border: "#e87d5b" },
+        font: { color: "#f5c0a8", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Art · Mural · 2023",
+          desc: "A 12-foot mural on the east wall of Jefferson High's cafeteria. Depicts the school's neighborhood as a circuit board — streets are traces, buildings are components, people are signals. Took 3 weekends.",
+          tags: ["Mural", "Acrylic", "12 feet", "Public art"]
+        }
+      },
+
+      // PHOTOGRAPHY FACET
+      {
+        id: "photo",
+        label: "Photography",
+        size: 24,
+        color: { background: "#b97ddb", border: "#d4a8f0", highlight: { background: "#c990e5", border: "#ddbff5" } },
+        font: { color: "#e8eaf6", size: 12, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Facet — Photography",
+          desc: "Arlo shoots on a Minolta X-700 his grandmother gave him. He develops his own black-and-white film in the school darkroom. He's interested in negative space — what's implied rather than shown.",
+          tags: ["35mm film", "Minolta X-700", "Darkroom", "B&W"]
+        }
+      },
+      {
+        id: "photo-closing",
+        label: "Closing time",
+        size: 13,
+        color: { background: "#8a4db5", border: "#b97ddb" },
+        font: { color: "#d4b0f0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Photography · Series · 2024",
+          desc: "30 photos of Portland diners and laundromats in the half-hour before they close. The series is about anticipatory endings — the specific quality of light in places that are about to go dark.",
+          tags: ["35mm", "B&W", "30 photos", "Portland"]
+        }
+      },
+      {
+        id: "photo-hands",
+        label: "Hands at work",
+        size: 13,
+        color: { background: "#8a4db5", border: "#b97ddb" },
+        font: { color: "#d4b0f0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Photography · Series · 2023",
+          desc: "Portraits of hands — a mechanic's, a baker's, a surgeon's, a pianist's, his father's. Shot on Kodak Tri-X. A study in what hands remember that the person doesn't consciously think about.",
+          tags: ["Portrait", "Kodak Tri-X", "Close-up", "8 subjects"]
+        }
+      },
+
+      // WRITING FACET
+      {
+        id: "writing",
+        label: "Writing",
+        size: 24,
+        color: { background: "#f0c040", border: "#f5d880", highlight: { background: "#f5cc55", border: "#f8e09a" } },
+        font: { color: "#1a1400", size: 12, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Facet — Writing",
+          desc: "Arlo writes on Medium about the intersection of making things and feeling things. He has about 400 followers and writes when something genuinely surprises him — which is often.",
+          tags: ["Medium", "Essays", "~400 followers"]
+        }
+      },
+      {
+        id: "write-robot",
+        label: "Why I broke my robot",
+        size: 13,
+        color: { background: "#b88a10", border: "#f0c040" },
+        font: { color: "#f5e0a0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Writing · Essay · 2024",
+          desc: "An essay about deliberately dismantling the maze-solving robot after the science fair. About the difference between a finished object and a learned thing. 1,200 reads.",
+          tags: ["Medium", "Essay", "1.2k reads"]
+        }
+      },
+      {
+        id: "write-darkroom",
+        label: "The darkroom is a waiting room",
+        size: 13,
+        color: { background: "#b88a10", border: "#f0c040" },
+        font: { color: "#f5e0a0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Writing · Essay · 2023",
+          desc: "On the experience of developing film — the suspended uncertainty between taking a photo and seeing it. Arlo argues it's the most honest metaphor for making anything.",
+          tags: ["Medium", "Essay", "Photography"]
+        }
+      },
+      {
+        id: "write-perlin",
+        label: "Perlin noise and imperfection",
+        size: 13,
+        color: { background: "#b88a10", border: "#f0c040" },
+        font: { color: "#f5e0a0", size: 10, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Writing · Essay · 2024",
+          desc: "On using Perlin noise to make the LED lamp feel organic — and why randomness with memory is more interesting than pure randomness. The most technically detailed of his essays.",
+          tags: ["Medium", "Essay", "Technical", "Creative coding"]
+        }
+      },
+
+      // CROSSOVER NODE
+      // This is the interesting one — it sits between Engineering and Art.
+      // Your portfolio will have overlaps like this too.
+      {
+        id: "cross-lamp",
+        label: "Lamp × ceramics",
+        size: 10,
+        color: { background: "#444460", border: "#6668a0" },
+        font: { color: "#a0a0c8", size: 9, face: "Georgia" },
+        shape: "dot",
+        meta: {
+          category: "Crossover — Engineering × Art",
+          desc: "The LED lamp sits at the intersection of engineering and art — the electronics are Arlo's, but so is the ceramic shade. This is a crossover node: it belongs to two facets at once. Your portfolio can have these too.",
+          tags: ["Engineering", "Art", "Overlap"]
+        }
+      }
+
+    ]);
+
+
+    // ---- EDGES ----
+    // Each object connects two nodes.
+    // Required: from (node id), to (node id)
+    // Optional: color, width, dashes, label
+
+    const edges = new vis.DataSet([
+
+      // Solid edges: center → facets (the main branches)
+      { from: "arlo", to: "eng",     color: { color: "#3a9975", opacity: 0.7 }, width: 2 },
+      { from: "arlo", to: "art",     color: { color: "#b85a3a", opacity: 0.7 }, width: 2 },
+      { from: "arlo", to: "photo",   color: { color: "#8a4db5", opacity: 0.7 }, width: 2 },
+      { from: "arlo", to: "writing", color: { color: "#b88a10", opacity: 0.7 }, width: 2 },
+
+      // Dashed edges: facets → projects (the leaves)
+      // dashes: [4, 4] means 4px dash, 4px gap — lighter, subordinate feel
+      { from: "eng",     to: "eng-robot",   color: { color: "#3a9975", opacity: 0.35 }, dashes: [4,4] },
+      { from: "eng",     to: "eng-lamp",    color: { color: "#3a9975", opacity: 0.35 }, dashes: [4,4] },
+      { from: "eng",     to: "eng-weather", color: { color: "#3a9975", opacity: 0.35 }, dashes: [4,4] },
+      { from: "art",     to: "art-zine",    color: { color: "#b85a3a", opacity: 0.35 }, dashes: [4,4] },
+      { from: "art",     to: "art-mural",   color: { color: "#b85a3a", opacity: 0.35 }, dashes: [4,4] },
+      { from: "photo",   to: "photo-closing", color: { color: "#8a4db5", opacity: 0.35 }, dashes: [4,4] },
+      { from: "photo",   to: "photo-hands",   color: { color: "#8a4db5", opacity: 0.35 }, dashes: [4,4] },
+      { from: "writing", to: "write-robot",   color: { color: "#b88a10", opacity: 0.35 }, dashes: [4,4] },
+      { from: "writing", to: "write-darkroom",color: { color: "#b88a10", opacity: 0.35 }, dashes: [4,4] },
+      { from: "writing", to: "write-perlin",  color: { color: "#b88a10", opacity: 0.35 }, dashes: [4,4] },
+
+      // Crossover edges: even more subtle — [2, 6] = short dash, long gap
+      { from: "eng-lamp",   to: "cross-lamp",    color: { color: "#666688", opacity: 0.4 }, dashes: [2,6] },
+      { from: "art",        to: "cross-lamp",    color: { color: "#666688", opacity: 0.4 }, dashes: [2,6] },
+
+      // Cross-facet connections: essay nodes linking back to their subjects
+      { from: "eng-robot", to: "write-robot",    color: { color: "#666688", opacity: 0.3 }, dashes: [2,6] },
+      { from: "photo",     to: "write-darkroom", color: { color: "#666688", opacity: 0.3 }, dashes: [2,6] },
+      { from: "eng-lamp",  to: "write-perlin",   color: { color: "#666688", opacity: 0.3 }, dashes: [2,6] },
+
+    ]);
+
+
+    // ---- OPTIONS ----
+    // This controls physics, interaction, and global defaults.
+    // Try changing the barnesHut numbers one at a time to feel what each does.
+
+    const options = {
+      physics: {
+        stabilization: { iterations: 200 },
+        barnesHut: {
+          gravitationalConstant: -2800,  // repulsion — try -500 (tight) or -9000 (scattered)
+          centralGravity: 0.12,          // pull to center — try 0.01 or 0.8
+          springLength: 150,             // edge resting length — try 80 or 300
+          springConstant: 0.04,          // edge stiffness
+          damping: 0.12                  // how fast it settles
+        }
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 300,
+        zoomView: true,
+        dragView: true,
+        navigationButtons: false
+      },
+      nodes: { borderWidth: 1.5, shadow: false },
+      edges: {
+        smooth: { type: "curvedCW", roundness: 0.12 },
+        selectionWidth: 0
+      }
+    };
+
+
+    // ---- CREATE THE NETWORK ----
+    const container = document.getElementById("constellation");
+    const network = new vis.Network(container, { nodes, edges }, options);
+
+
+    // ---- EVENTS ----
+    // network.on("click") fires whenever the user clicks.
+    // params.nodes is an array of clicked node IDs (usually just one).
+
+    const panel    = document.getElementById("panel");
+    const ptitle   = document.getElementById("panel-title");
+    const pcat     = document.getElementById("panel-category");
+    const pdesc    = document.getElementById("panel-desc");
+    const ptags    = document.getElementById("panel-tags");
+
+    network.on("click", function(params) {
+      if (params.nodes.length === 0) {
+        panel.classList.remove("open");
+        return;
+      }
+
+      const nodeData = nodes.get(params.nodes[0]);
+      const meta     = nodeData.meta || {};
+
+      ptitle.textContent = nodeData.label;
+      pcat.textContent   = meta.category || "";
+      pdesc.textContent  = meta.desc || "No description yet.";
+
+      ptags.innerHTML = "";
+      (meta.tags || []).forEach(function(tag) {
+        const span = document.createElement("span");
+        span.className   = "tag";
+        span.textContent = tag;
+        ptags.appendChild(span);
+      });
+
+      panel.classList.add("open");
+
+      // Zoom to the clicked node
+      network.focus(params.nodes[0], {
+        scale: 1.5,
+        animation: { duration: 500, easingFunction: "easeInOutQuad" }
+      });
+    });
+
+    // Close panel → zoom back out
+    document.getElementById("close-panel").addEventListener("click", function() {
+      panel.classList.remove("open");
+      network.fit({ animation: { duration: 500, easingFunction: "easeInOutQuad" } });
+    });
+
+    // Reset button
+    document.getElementById("reset-btn").addEventListener("click", function() {
+      panel.classList.remove("open");
+      network.fit({ animation: { duration: 500, easingFunction: "easeInOutQuad" } });
+    });
+
+  </script>
+</body>
+</html>
