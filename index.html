@@ -36,6 +36,10 @@
                     highlight:{
                         background: "#ffffff",
                         border: "#e8e4ff"
+                    },
+                    hover: {
+                        background: "#ffffff",
+                        border: "#e8e4ff"
                     }
                 },
                  font: {
@@ -48,8 +52,104 @@
             const edges = new vis.DataSet([]);
 
             const container = document.getElementById("constellation");
-            new vis.Network(container, {nodes, edges}, {});
-        </script>
+            const network = new vis.Network(container, {nodes, edges}, {
+                physics: {
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.1,
+                        springLength: 150,
+                        springConstant: 0.04,
+                        damping: 0.09
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    hoverConnectedEdges: false
+                }
+            });
 
+            // Animate a node's size from its current size to a target size
+            function animateNodeSize (nodeId, targetSize, duration) {
+                const startSize = nodes.get(nodeId).size;
+                const startTime = performance.now();
+
+                function step(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1); // 0 to 1
+
+                    // Ease in-out: slow start, fast middle, slow end
+                    const eased = progress < 0.5
+                    ? 2*progress*progress
+                    : -1 + (4-2*progress)*progress;
+
+                    const currentSize = startSize + (targetSize - startSize) * eased;
+                    nodes.update({id: nodeId, size: currentSize});
+
+                    if (progress < 1) {
+                        requestAnimationFrame(step); // keep going until done
+                    }
+                }
+
+                requestAnimationFrame(step);
+
+            }
+
+            network.on("hoverNode", function (params) {
+                animateNodeSize(params.node, 28, 200); // Animate to size 28 over 200ms
+            });
+
+            network.on("blurNode", function (params) {
+                animateNodeSize(params.node, 12, 200); // Animate to size 12 over 200ms
+            });
+
+            // Allows a node to pulse between a minimum and maximum size over a specified duration
+            function pulseNode(nodeId, minSize, maxSize, duration) {
+                const startTime = performance.now();
+
+                function step(currentTime) {
+                    const elapsed = (currentTime - startTime) % duration;
+                    const progress = elapsed / duration;
+
+                    const eased = (Math.sin(progress * Math.PI * 2-Math.PI/2) + 1) / 2; // Sine wave easing
+                    const currentSize = minSize + (maxSize - minSize) * eased;
+                    nodes.update({id: nodeId, size: currentSize});
+
+                    requestAnimationFrame(step);
+                }
+
+                requestAnimationFrame(step);
+            }
+
+            // Allows one node to pulse and grow while all other nodes fade out when hovered over
+            network.on("hoverNode", function(params) {
+                const hoveredId = params.node;
+
+                nodes.get().forEach(function(node) {
+                    if (node.id !== hoveredId) {
+                        nodes.update({
+                            id: node.id,
+                            font: { color: "#ffffff10"},
+                            color: {
+                                background: node.color.background,
+                                border: node.color.border,
+                                opacity: 0.15
+                            }
+                        });
+                    }
+                });
+
+                animateNodeSize(hoveredId, 28, 200); // Animate to size 28 over 200ms
+            });
+
+            network.on("blurNode", function(params) {
+                nodes.get().forEach(function(node) {
+                    nodes.get().forEach(function(node) {
+                        nodes.update({id: node.id, size: 12});
+                        nodes.update({id: node.id, opacity: 1});
+                    });
+                });
+            });
+            
+        </script>
     </body>
 </html>
